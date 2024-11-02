@@ -2,7 +2,15 @@ from fasthtml.common import *
 from datetime import datetime
 
 
-app, route = fast_app(live=True)
+app, route, expenses, Expense = fast_app(
+    "data/expenses.db",
+    category=str,
+    amount=float,
+    date=datetime,
+    id=int,
+    pk="id",
+    live=True,
+)
 
 
 @route("/")
@@ -17,7 +25,7 @@ def get():
         Option("Grocery", value="grocery"),
         Option("Food", value="food"),
         Option("Others", value="others"),
-        id="Category",
+        id="category",
     )
 
     amount_input = Input(
@@ -45,8 +53,8 @@ def get():
 
 
 @route("/add_entry")
-def post():
-    # TODO: handle the data
+def post(expense: Expense):  # type: ignore
+    expenses.insert(expense)
     return P("Sucessfully added entry"), Meta(http_equiv="refresh", content="2; url=/")
 
 
