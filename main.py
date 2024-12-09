@@ -1,22 +1,26 @@
 from fasthtml.common import *
 from datetime import datetime
-
+import plotly.express as px
+import pandas as pd
 
 app, route, expenses, Expense = fast_app(
     "data/expenses.db",
     category=str,
     amount=float,
-    date=datetime,
+    date=str,
     id=int,
     pk="id",
     live=True,
 )
 
+setup_toasts(app)
+
 
 @route("/")
 def get():
     entry_button = A(Button("Add entry"), href="/entry")
-    return Titled("Expense tracker", entry_button)
+    report_button = A(Button("Report"), href="/report")
+    return Titled("Expense tracker", entry_button, " ", report_button)
 
 
 @route("/entry")
@@ -53,9 +57,53 @@ def get():
 
 
 @route("/add_entry")
-def post(expense: Expense):  # type: ignore
+def post(expense: Expense, session):  # type: ignore
     expenses.insert(expense)
-    return P("Sucessfully added entry"), Meta(http_equiv="refresh", content="2; url=/")
+    add_toast(session, f"Added Sucessfully", "success")
+    return RedirectResponse("/", status_code=303)
+
+
+def filter_by_date(date: str):
+    query = f"date = '{date}'"  # this single quotes are important in order to
+    print("query", query)
+    return list(expenses.rows_where(where=query))
+
+
+def generate_piechart(data):
+    df = pd.DataFrame(data).drop("id", axis=1).rename(columns=str.capitalize)
+    fig = px.pie(
+        df,
+        values="Amount",
+        names="Category",
+        hole=0.2,
+        color="Category",
+        color_discrete_map={
+            "food": "royalblue",
+            "grocery": "cyan",
+            "others": "darkblue",
+        },
+    )
+    # To diplay the chart in the browser
+    return NotStr(fig.to_html(full_html=False))
+
+
+@route("/report")
+def get():
+    date = datetime.now().strftime("%Y-%m-%d")
+    filtered_data = filter_by_date(date)
+    home_button = A(
+        Button("Home"),
+        href="/",
+        style="position:absolute; left:10px; bottom:10px;",
+    )
+    return Titled(
+        "Report",
+        Div(
+            generate_piechart(filtered_data),
+            id="report-container",
+        ),
+        home_button,
+    )
 
 
 serve()
